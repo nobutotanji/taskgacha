@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>カスタムリワードガチャ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
+    h1 { text-align: center; }
+    .container { max-width: 600px; margin: 0 auto; }
+    textarea { width: 100%; height: 120px; padding: 8px; margin: 10px 0; border-radius: 6px; border: 1px solid #ccc; }
+    button { padding: 10px; margin: 5px; width: 48%; }
+    #result { font-size: 1.3em; text-align: center; margin: 20px 0; white-space: pre-line; }
+    .highlight { color: #e91e63; font-weight: bold; }
+    #roulette { margin: 20px auto; border-radius: 50%; border: 8px solid #ccc; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; font-size: 2em; background-color: #fff; }
+    /* flashy single hit */
+    .hit { font-size: 2em; animation: bounce 0.6s ease; }
+    @keyframes bounce { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1);} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎰 カスタムリワードガチャ 🎰</h1>
+
+    <p>リワードを <code>リワード名,確率(%)</code> の形式で改行して入力してください。</p>
+    <textarea id="rewardsInput">YouTube観る,5\nSNS・ネットサーフィン,5\nギターだらだら弾く,0.01\nゲーム,0.01</textarea>
+
+    <div id="roulette">🎯</div>
+
+    <button onclick="drawSingle()">ガチャを回す！</button>
+    <button onclick="drawTen()">10連ガチャ！</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    function parseRewards() {
+      const lines = document.getElementById('rewardsInput').value.trim().split(/\n+/);
+      const rewards = [];
+      for (const line of lines) {
+        const [name, chanceStr] = line.split(',');
+        const nameTrim = (name || '').trim();
+        const chance = parseFloat((chanceStr || '').trim());
+        if (nameTrim && !isNaN(chance) && chance > 0) {
+          rewards.push({ name: nameTrim, chance });
+        }
+      }
+      return rewards;
+    }
+
+    function getRandomReward(rewards) {
+      const rand = Math.random() * 100;
+      let cumulative = 0;
+      for (const r of rewards) {
+        cumulative += r.chance;
+        if (rand <= cumulative) return r.name;
+      }
+      return 'ハズレ';
+    }
+
+    function spin(duration) {
+      const roulette = document.getElementById('roulette');
+      roulette.style.transition = 'none';
+      roulette.style.transform = 'rotate(0deg)';
+      void roulette.offsetWidth;
+      const target = 3600 + Math.random() * 360;
+      roulette.style.transition = `transform ${duration/1000}s cubic-bezier(0.33,1,0.68,1)`;
+      roulette.style.transform = `rotate(${target}deg)`;
+    }
+
+    function drawSingle() {
+      const rewards = parseRewards();
+      const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
+      if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
+      rewards.push({ name:'ハズレ', chance: 100 - totalChance });
+      spin(1000);
+      setTimeout(()=>{
+        const res = getRandomReward(rewards);
+        showSingleResult(res);
+      },1000);
+    }
+
+    function drawTen() {
+      const rewards = parseRewards();
+      const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
+      if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
+      rewards.push({ name:'ハズレ', chance: 100 - totalChance });
+      spin(3000);
+      setTimeout(()=>{
+        const results = Array.from({length:10}, ()=> getRandomReward(rewards));
+        revealTen(results);
+      },3000);
+    }
+
+    function showSingleResult(res) {
+      const div = document.getElementById('result');
+      if (res==='ハズレ') {
+        div.className='';
+        div.textContent = '😢 ハズレ！😢';
+      } else {
+        div.className='hit';
+        div.innerHTML = `🎉 大当たり！<br><span class="highlight">${res}</span>`;
+        setTimeout(()=>div.className='',600); // reset class after animation
+      }
+    }
+
+    function revealTen(results){
+      const div=document.getElementById('result');
+      div.className='';
+      div.textContent='';
+      let index=0;
+      function reveal(){
+        const r=results[index];
+        const line=r==='ハズレ'? '😢 ハズレ' : `🎉 ${r}`;
+        div.innerHTML += (index+1)+'. '+ (r==='ハズレ'? line : line.replace(/🎉 (.*)/,`🎉 <span class="highlight">$1</span>`))+ '\n';
+        index++;
+        if(index<results.length){
+          setTimeout(reveal,300);
+        }
+      }
+      reveal();
+    }
+  </script>
+</body>
+</html>
