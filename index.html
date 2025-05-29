@@ -46,8 +46,11 @@
   </div>
 
   <script>
-    // ローカル履歴（ページ読み込み時は空）
-    let rewardHistory = [];
+    let rewardHistory = JSON.parse(localStorage.getItem('rewardHistory') || '[]');
+
+    function saveHistory() {
+      localStorage.setItem('rewardHistory', JSON.stringify(rewardHistory));
+    }
 
     function parseRewards() {
       const lines = document.getElementById('rewardsInput').value.trim().split(/\n+/);
@@ -83,7 +86,6 @@
       roulette.style.transform = `rotate(${target}deg)`;
     }
 
-    // 履歴表示
     function renderHistory() {
       const listDiv = document.getElementById('historyList');
       listDiv.innerHTML = '';
@@ -103,19 +105,21 @@
       const rank = getRewardRank(reward, rewardsList);
       rewardHistory.push({name: reward, rank: rank});
       renderHistory();
+      saveHistory();
     }
 
     function removeHistory(idx) {
       rewardHistory.splice(idx, 1);
       renderHistory();
+      saveHistory();
     }
 
     function clearHistory() {
       rewardHistory = [];
       renderHistory();
+      saveHistory();
     }
 
-    // ガチャ中は前結果を消す
     function clearResult() {
       document.getElementById('result').textContent = '';
     }
@@ -123,7 +127,6 @@
     function getRewardRank(rewardName, rewards) {
       const found = rewards.find(r => r.name === rewardName);
       if (!found) return '';
-      // ここで基準を調整可能（今は2%未満が大当たり）
       if (found.chance < 2) return '大当たり';
       else return '当たり';
     }
@@ -154,7 +157,7 @@
         revealMulti(results, 5, rewards);
         setTimeout(() => {
           results.forEach(r => { if(r !== 'ハズレ') addToHistoryWithRank(r, rewards); });
-        }, 5 * 300 + 100); // 1つ300msで発表、+バッファ
+        }, 5 * 300 + 100);
       },2000);
     }
 
@@ -215,7 +218,6 @@
       reveal();
     }
 
-    // ページロード時、履歴初期化
     renderHistory();
   </script>
 </body>
