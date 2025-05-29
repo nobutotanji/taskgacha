@@ -28,7 +28,7 @@
     <h1>🎰 カスタムリワードガチャ 🎰</h1>
 
     <p>リワードを <code>リワード名,確率(%)</code> の形式で改行して入力してください。</p>
-    <textarea id="rewardsInput">YouTube観る,5\nSNS・ネットサーフィン,5\nギターだらだら弾く,0.01\nゲーム,0.01</textarea>
+    <textarea id="rewardsInput">ネットサーフィン10分,10</textarea>
 
     <div id="roulette">🎯</div>
 
@@ -45,134 +45,178 @@
     </div>
   </div>
 
-<!-- HTML本体はそのまま。JSだけ追記・修正 -->
-<script>
-  // ...既存コード...
+  <script>
+    // ローカル履歴（ページ読み込み時は空）
+    let rewardHistory = [];
 
-  // 追加：確率からランク判定
-  function getRewardRank(rewardName, rewards) {
-    const found = rewards.find(r => r.name === rewardName);
-    if (!found) return '';
-    // ここで基準を調整可能
-    if (found.chance < 2) return '大当たり';
-    else return '当たり';
-  }
-
-  // 修正：履歴追加のタイミングを「全発表後」に
-  function drawFive() {
-    clearResult();
-    const rewards = parseRewards();
-    const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
-    if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
-    rewards.push({ name:'ハズレ', chance: 100 - totalChance });
-    spin(2000);
-    setTimeout(()=>{
-      const results = Array.from({length:5}, ()=> getRandomReward(rewards));
-      revealMulti(results, 5, rewards); // ← 引数にrewards追加
-      setTimeout(() => {
-        results.forEach(r => { if(r !== 'ハズレ') addToHistoryWithRank(r, rewards); });
-      }, 5 * 300 + 100); // 1つ300msで発表、+バッファ
-    },2000);
-  }
-  function drawTen() {
-    clearResult();
-    const rewards = parseRewards();
-    const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
-    if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
-    rewards.push({ name:'ハズレ', chance: 100 - totalChance });
-    spin(3000);
-    setTimeout(()=>{
-      const results = Array.from({length:10}, ()=> getRandomReward(rewards));
-      revealMulti(results, 10, rewards);
-      setTimeout(() => {
-        results.forEach(r => { if(r !== 'ハズレ') addToHistoryWithRank(r, rewards); });
-      }, 10 * 300 + 100);
-    },3000);
-  }
-
-  // 履歴にランク付きで追加
-  function addToHistoryWithRank(reward, rewardsList) {
-    const rank = getRewardRank(reward, rewardsList);
-    rewardHistory.push({name: reward, rank: rank});
-    renderHistory();
-  }
-
-  // 単発も対応
-  function drawSingle() {
-    clearResult();
-    const rewards = parseRewards();
-    const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
-    if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
-    rewards.push({ name:'ハズレ', chance: 100 - totalChance });
-    spin(1000);
-    setTimeout(()=>{
-      const res = getRandomReward(rewards);
-      showSingleResult(res, rewards);
-      if(res !== 'ハズレ') addToHistoryWithRank(res, rewards);
-    },1000);
-  }
-
-  // 履歴表示を大当たり/当たりで装飾
-  function renderHistory() {
-    const listDiv = document.getElementById('historyList');
-    listDiv.innerHTML = '';
-    rewardHistory.forEach((item, idx) => {
-      let label = '';
-      if (item.rank === '大当たり') label = `<span style="color:#ffd700; font-weight:bold; margin-right:2px;">★大当たり!</span>`;
-      else if (item.rank === '当たり') label = `<span style="color:#2196f3; font-weight:bold; margin-right:2px;">当たり!</span>`;
-      const span = document.createElement('span');
-      span.className = 'history-item';
-      span.innerHTML = `${label}<span>${item.name}</span>
-        <button class="history-remove" onclick="removeHistory(${idx})">✕</button>`;
-      listDiv.appendChild(span);
-    });
-  }
-
-  // 結果発表もランク表示
-  function showSingleResult(res, rewardsList) {
-    const div = document.getElementById('result');
-    if (res==='ハズレ') {
-      div.className='';
-      div.textContent = '😢 ハズレ！😢';
-    } else {
-      const rank = getRewardRank(res, rewardsList);
-      let label = '';
-      if (rank === '大当たり') label = '<span style="color:#ffd700; font-size:1.3em; font-weight:bold;">★大当たり！</span><br>';
-      else if (rank === '当たり') label = '<span style="color:#2196f3; font-size:1.1em; font-weight:bold;">当たり！</span><br>';
-      div.className='hit';
-      div.innerHTML = `🎉 ${label}<span class="highlight">${res}</span>`;
-      setTimeout(()=>div.className='',600);
+    function parseRewards() {
+      const lines = document.getElementById('rewardsInput').value.trim().split(/\n+/);
+      const rewards = [];
+      for (const line of lines) {
+        const [name, chanceStr] = line.split(',');
+        const nameTrim = (name || '').trim();
+        const chance = parseFloat((chanceStr || '').trim());
+        if (nameTrim && !isNaN(chance) && chance > 0) {
+          rewards.push({ name: nameTrim, chance });
+        }
+      }
+      return rewards;
     }
-  }
 
-  // 結果発表（5連・10連）はrank対応
-  function revealMulti(results, n, rewardsList){
-    const div=document.getElementById('result');
-    div.className='';
-    div.textContent='';
-    let index=0;
-    function reveal(){
-      const r=results[index];
-      let line='';
-      if (r==='ハズレ') {
-        line = '😢 ハズレ';
+    function getRandomReward(rewards) {
+      const rand = Math.random() * 100;
+      let cumulative = 0;
+      for (const r of rewards) {
+        cumulative += r.chance;
+        if (rand <= cumulative) return r.name;
+      }
+      return 'ハズレ';
+    }
+
+    function spin(duration) {
+      const roulette = document.getElementById('roulette');
+      roulette.style.transition = 'none';
+      roulette.style.transform = 'rotate(0deg)';
+      void roulette.offsetWidth;
+      const target = 3600 + Math.random() * 360;
+      roulette.style.transition = `transform ${duration/1000}s cubic-bezier(0.33,1,0.68,1)`;
+      roulette.style.transform = `rotate(${target}deg)`;
+    }
+
+    // 履歴表示
+    function renderHistory() {
+      const listDiv = document.getElementById('historyList');
+      listDiv.innerHTML = '';
+      rewardHistory.forEach((item, idx) => {
+        let label = '';
+        if (item.rank === '大当たり') label = `<span style="color:#ffd700; font-weight:bold; margin-right:2px;">★大当たり!</span>`;
+        else if (item.rank === '当たり') label = `<span style="color:#2196f3; font-weight:bold; margin-right:2px;">当たり!</span>`;
+        const span = document.createElement('span');
+        span.className = 'history-item';
+        span.innerHTML = `${label}<span>${item.name}</span>
+          <button class="history-remove" onclick="removeHistory(${idx})">✕</button>`;
+        listDiv.appendChild(span);
+      });
+    }
+
+    function addToHistoryWithRank(reward, rewardsList) {
+      const rank = getRewardRank(reward, rewardsList);
+      rewardHistory.push({name: reward, rank: rank});
+      renderHistory();
+    }
+
+    function removeHistory(idx) {
+      rewardHistory.splice(idx, 1);
+      renderHistory();
+    }
+
+    function clearHistory() {
+      rewardHistory = [];
+      renderHistory();
+    }
+
+    // ガチャ中は前結果を消す
+    function clearResult() {
+      document.getElementById('result').textContent = '';
+    }
+
+    function getRewardRank(rewardName, rewards) {
+      const found = rewards.find(r => r.name === rewardName);
+      if (!found) return '';
+      // ここで基準を調整可能（今は2%未満が大当たり）
+      if (found.chance < 2) return '大当たり';
+      else return '当たり';
+    }
+
+    function drawSingle() {
+      clearResult();
+      const rewards = parseRewards();
+      const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
+      if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
+      rewards.push({ name:'ハズレ', chance: 100 - totalChance });
+      spin(1000);
+      setTimeout(()=>{
+        const res = getRandomReward(rewards);
+        showSingleResult(res, rewards);
+        if(res !== 'ハズレ') addToHistoryWithRank(res, rewards);
+      },1000);
+    }
+
+    function drawFive() {
+      clearResult();
+      const rewards = parseRewards();
+      const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
+      if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
+      rewards.push({ name:'ハズレ', chance: 100 - totalChance });
+      spin(2000);
+      setTimeout(()=>{
+        const results = Array.from({length:5}, ()=> getRandomReward(rewards));
+        revealMulti(results, 5, rewards);
+        setTimeout(() => {
+          results.forEach(r => { if(r !== 'ハズレ') addToHistoryWithRank(r, rewards); });
+        }, 5 * 300 + 100); // 1つ300msで発表、+バッファ
+      },2000);
+    }
+
+    function drawTen() {
+      clearResult();
+      const rewards = parseRewards();
+      const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
+      if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
+      rewards.push({ name:'ハズレ', chance: 100 - totalChance });
+      spin(3000);
+      setTimeout(()=>{
+        const results = Array.from({length:10}, ()=> getRandomReward(rewards));
+        revealMulti(results, 10, rewards);
+        setTimeout(() => {
+          results.forEach(r => { if(r !== 'ハズレ') addToHistoryWithRank(r, rewards); });
+        }, 10 * 300 + 100);
+      },3000);
+    }
+
+    function showSingleResult(res, rewardsList) {
+      const div = document.getElementById('result');
+      if (res==='ハズレ') {
+        div.className='';
+        div.textContent = '😢 ハズレ！😢';
       } else {
-        const rank = getRewardRank(r, rewardsList);
-        if (rank === '大当たり') line = `🎉 <span style="color:#ffd700;font-weight:bold;">★大当たり!</span> <span class="highlight">${r}</span>`;
-        else if (rank === '当たり') line = `🎉 <span style="color:#2196f3;font-weight:bold;">当たり!</span> <span class="highlight">${r}</span>`;
-        else line = `🎉 <span class="highlight">${r}</span>`;
-      }
-      div.innerHTML += (index+1)+'. '+ line + '\n';
-      index++;
-      if(index<results.length){
-        setTimeout(reveal,300);
+        const rank = getRewardRank(res, rewardsList);
+        let label = '';
+        if (rank === '大当たり') label = '<span style="color:#ffd700; font-size:1.3em; font-weight:bold;">★大当たり！</span><br>';
+        else if (rank === '当たり') label = '<span style="color:#2196f3; font-size:1.1em; font-weight:bold;">当たり！</span><br>';
+        div.className='hit';
+        div.innerHTML = `🎉 ${label}<span class="highlight">${res}</span>`;
+        setTimeout(()=>div.className='',600);
       }
     }
-    reveal();
-  }
 
-  // ...他は同じ...
-</script>
+    function revealMulti(results, n, rewardsList){
+      const div=document.getElementById('result');
+      div.className='';
+      div.textContent='';
+      let index=0;
+      function reveal(){
+        const r=results[index];
+        let line='';
+        if (r==='ハズレ') {
+          line = '😢 ハズレ';
+        } else {
+          const rank = getRewardRank(r, rewardsList);
+          if (rank === '大当たり') line = `🎉 <span style="color:#ffd700;font-weight:bold;">★大当たり!</span> <span class="highlight">${r}</span>`;
+          else if (rank === '当たり') line = `🎉 <span style="color:#2196f3;font-weight:bold;">当たり!</span> <span class="highlight">${r}</span>`;
+          else line = `🎉 <span class="highlight">${r}</span>`;
+        }
+        div.innerHTML += (index+1)+'. '+ line + '\n';
+        index++;
+        if(index<results.length){
+          setTimeout(reveal,300);
+        }
+      }
+      reveal();
+    }
 
+    // ページロード時、履歴初期化
+    renderHistory();
+  </script>
 </body>
 </html>
