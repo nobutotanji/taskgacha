@@ -13,9 +13,14 @@
     #result { font-size: 1.3em; text-align: center; margin: 20px 0; white-space: pre-line; }
     .highlight { color: #e91e63; font-weight: bold; }
     #roulette { margin: 20px auto; border-radius: 50%; border: 8px solid #ccc; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; font-size: 2em; background-color: #fff; }
-    /* flashy single hit */
     .hit { font-size: 2em; animation: bounce 0.6s ease; }
     @keyframes bounce { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1);} }
+    #rewardHistory { background: #fff; border-radius: 8px; padding: 10px; margin-top: 18px; min-height: 44px; }
+    .history-title { font-weight: bold; margin-bottom: 6px; }
+    .history-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .history-item { background: #ffeef0; border: 1px solid #e91e63; border-radius: 5px; padding: 3px 8px; display: flex; align-items: center; }
+    .history-remove { margin-left: 4px; color: #e91e63; cursor: pointer; font-size: 1em; background: none; border: none; }
+    #clearHistoryBtn { margin-left: 8px; background: #e91e63; color: #fff; border: none; border-radius: 4px; padding: 4px 12px; }
   </style>
 </head>
 <body>
@@ -28,12 +33,22 @@
     <div id="roulette">🎯</div>
 
     <button onclick="drawSingle()">ガチャを回す！</button>
+    <button onclick="drawFive()">5連ガチャ！</button>
     <button onclick="drawTen()">10連ガチャ！</button>
 
     <div id="result"></div>
+
+    <div id="rewardHistory">
+      <span class="history-title">🎁 獲得したリワード一覧</span>
+      <button id="clearHistoryBtn" onclick="clearHistory()">全削除</button>
+      <div id="historyList" class="history-list"></div>
+    </div>
   </div>
 
   <script>
+    // ローカル履歴（ページ読み込み時は空）
+    let rewardHistory = [];
+
     function parseRewards() {
       const lines = document.getElementById('rewardsInput').value.trim().split(/\n+/);
       const rewards = [];
@@ -68,7 +83,41 @@
       roulette.style.transform = `rotate(${target}deg)`;
     }
 
+    // 履歴表示
+    function renderHistory() {
+      const listDiv = document.getElementById('historyList');
+      listDiv.innerHTML = '';
+      rewardHistory.forEach((item, idx) => {
+        const span = document.createElement('span');
+        span.className = 'history-item';
+        span.innerHTML = `<span>${item}</span>
+          <button class="history-remove" onclick="removeHistory(${idx})">✕</button>`;
+        listDiv.appendChild(span);
+      });
+    }
+
+    function addToHistory(reward) {
+      rewardHistory.push(reward);
+      renderHistory();
+    }
+
+    function removeHistory(idx) {
+      rewardHistory.splice(idx, 1);
+      renderHistory();
+    }
+
+    function clearHistory() {
+      rewardHistory = [];
+      renderHistory();
+    }
+
+    // ガチャ中は前結果を消す
+    function clearResult() {
+      document.getElementById('result').textContent = '';
+    }
+
     function drawSingle() {
+      clearResult();
       const rewards = parseRewards();
       const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
       if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
@@ -77,10 +126,26 @@
       setTimeout(()=>{
         const res = getRandomReward(rewards);
         showSingleResult(res);
+        if(res !== 'ハズレ') addToHistory(res);
       },1000);
     }
 
+    function drawFive() {
+      clearResult();
+      const rewards = parseRewards();
+      const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
+      if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
+      rewards.push({ name:'ハズレ', chance: 100 - totalChance });
+      spin(2000);
+      setTimeout(()=>{
+        const results = Array.from({length:5}, ()=> getRandomReward(rewards));
+        revealMulti(results, 5);
+        results.forEach(r => { if(r !== 'ハズレ') addToHistory(r); });
+      },2000);
+    }
+
     function drawTen() {
+      clearResult();
       const rewards = parseRewards();
       const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
       if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
@@ -88,7 +153,8 @@
       spin(3000);
       setTimeout(()=>{
         const results = Array.from({length:10}, ()=> getRandomReward(rewards));
-        revealTen(results);
+        revealMulti(results, 10);
+        results.forEach(r => { if(r !== 'ハズレ') addToHistory(r); });
       },3000);
     }
 
@@ -104,7 +170,7 @@
       }
     }
 
-    function revealTen(results){
+    function revealMulti(results, n){
       const div=document.getElementById('result');
       div.className='';
       div.textContent='';
@@ -120,6 +186,9 @@
       }
       reveal();
     }
+
+    // ページロード時、履歴初期化
+    renderHistory();
   </script>
 </body>
 </html>
