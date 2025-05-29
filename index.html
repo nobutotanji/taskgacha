@@ -28,7 +28,7 @@
     <h1>🎰 カスタムリワードガチャ 🎰</h1>
 
     <p>リワードを <code>リワード名,確率(%)</code> の形式で改行して入力してください。</p>
-    <textarea id="rewardsInput">ネットサーフィン10分,10</textarea>
+    <textarea id="rewardsInput"></textarea>
 
     <div id="roulette">🎯</div>
 
@@ -50,6 +50,16 @@
 
     function saveHistory() {
       localStorage.setItem('rewardHistory', JSON.stringify(rewardHistory));
+    }
+
+    function saveRewardsInput() {
+      localStorage.setItem('rewardsInput', document.getElementById('rewardsInput').value);
+    }
+
+    function loadRewardsInput() {
+      const saved = localStorage.getItem('rewardsInput');
+      if (saved !== null) document.getElementById('rewardsInput').value = saved;
+      else document.getElementById('rewardsInput').value = 'ネットサーフィン10分,10';
     }
 
     function parseRewards() {
@@ -133,6 +143,7 @@
 
     function drawSingle() {
       clearResult();
+      saveRewardsInput();
       const rewards = parseRewards();
       const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
       if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
@@ -147,6 +158,7 @@
 
     function drawFive() {
       clearResult();
+      saveRewardsInput();
       const rewards = parseRewards();
       const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
       if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
@@ -163,6 +175,7 @@
 
     function drawTen() {
       clearResult();
+      saveRewardsInput();
       const rewards = parseRewards();
       const totalChance = rewards.reduce((s,r)=>s+r.chance,0);
       if (totalChance > 100) { alert('確率合計が100%を超えています'); return; }
@@ -218,7 +231,9 @@
       reveal();
     }
 
+    // 初期化処理
     renderHistory();
+    loadRewardsInput();
   </script>
 </body>
 </html>
