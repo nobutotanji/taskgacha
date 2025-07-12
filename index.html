@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>カスタムリワードガチャ v1.01</title>
+  <title>カスタムリワードガチャ v1.02</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     /* ——— Global Layout ——— */
@@ -50,7 +50,6 @@
 <body>
   <div class="container">
     <div id="gameArea">
-      <!-- Lucky banner will be inserted here -->
       <h1>🎰 カスタムリワードガチャ 🎰</h1>
       <div id="roulette">🎯</div>
       <div class="action-buttons">
@@ -72,140 +71,148 @@
       <textarea id="rewardsInput" oninput="save.input()"></textarea>
     </section>
 
-    <footer id="version" style="text-align:center;margin-top:12px;color:#888;">v1.01</footer>
+    <footer style="text-align:center;margin-top:12px;color:#888;">v1.02</footer>
   </div>
 
 <script>
-// ——— CONFIG ———
+/***** CONFIG *****/
 const LUCKY_DURATION_MIN = 60;
 const LUCKY_LEVELS = [1.5,3,5,7.5,10];
 const BONUS_PROB = 0.3;
 const MISS_THRESHOLD = 15;
 
-// ——— STATE & STORAGE ———
+/***** STATE & STORAGE *****/
 let rewardHistory = JSON.parse(localStorage.getItem('rewardHistory')||'[]');
 let consecutiveMisses = Number(localStorage.getItem('consecutiveMisses')||0);
-
 const save = {
   history: ()=>localStorage.setItem('rewardHistory',JSON.stringify(rewardHistory)),
   misses: ()=>localStorage.setItem('consecutiveMisses',consecutiveMisses),
-  input: ()=>localStorage.setItem('rewardsInput',document.getElementById('rewardsInput').value)
+  input: ()=>localStorage.setItem('rewardsInput',$('rewardsInput').value)
 };
 
-function loadInput(){
-  const v = localStorage.getItem('rewardsInput');
-  document.getElementById('rewardsInput').value = v ?? 'ネットサーフィン10分,10';
-}
-
-// ——— UTILS ———
-const $ = id => document.getElementById(id);
+/***** UTIL *****/
+const $ = id=>document.getElementById(id);
 const isLucky = () => Date.now() < (+localStorage.getItem('luckyUntil')||0);
 const luckyBoost = () => +localStorage.getItem('luckyBoost')||1;
 
-// ——— LUCKY CONTROL ———
+/***** LUCKY CONTROL *****/
 function startLucky(){
   const boost = LUCKY_LEVELS[Math.random()*LUCKY_LEVELS.length|0];
   localStorage.setItem('luckyBoost',boost);
   localStorage.setItem('luckyUntil',Date.now()+LUCKY_DURATION_MIN*60000);
   showBanner();
 }
-function maybeStartLucky(){ if(!isLucky() && Math.random()<BONUS_PROB) startLucky(); }
-function applyBoost(list){
-  if(!isLucky()) return list;
-  const b = luckyBoost();
-  const arr = list.map(o=>({...o}));
-  let total = 0;
-  arr.forEach(o=>{ if(o.name!=='ハズレ') o.chance *= b; total += o.chance; });
-  arr.forEach(o=> o.chance = 100*o.chance/total);
-  return arr;
-}
+function maybeLucky(){ if(!isLucky() && Math.random()<BONUS_PROB) startLucky(); }
+function applyBoost(arr){ if(!isLucky()) return arr;
+  const b=luckyBoost(); const list=arr.map(o=>({...o}));
+  let total=0; list.forEach(o=>{ if(o.name!=='ハズレ') o.chance*=b; total+=o.chance; });
+  list.forEach(o=> o.chance=100*o.chance/total); return list; }
 
-// ——— BANNER ———
+/***** BANNER *****/
 function showBanner(){
-  const area = $('gameArea');
-  let ban = $('luckyBanner');
-  if(!isLucky()) { if(ban) ban.remove(); return; }
-  if(!ban){
-    ban = document.createElement('div'); ban.id='luckyBanner';
-    ban.innerHTML = '⭐ BONUS TIME! 当選率UP中 <span class="timer"></span>';
-    area.prepend(ban);
-  }
-  const timer = ban.querySelector('.timer');
+  let ban=$('luckyBanner'); const area=$('gameArea');
+  if(!isLucky()){ if(ban) ban.remove(); return; }
+  if(!ban){ ban=document.createElement('div'); ban.id='luckyBanner'; ban.innerHTML='⭐ BONUS TIME! 当選率UP中 <span class="timer"></span>'; area.prepend(ban);}  
+  const timer=ban.querySelector('.timer');
   function tick(){
-    const remain = +localStorage.getItem('luckyUntil') - Date.now();
-    if(remain<=0){clearInterval(ban._id); ban.remove(); return;}
-    const m = String(Math.floor(remain/60000)).padStart(2,'0');
-    const s = String(Math.floor((remain%60000)/1000)).padStart(2,'0');
-    timer.textContent = `(${m}:${s})`;
+    const rem=+localStorage.getItem('luckyUntil')-Date.now();
+    if(rem<=0){clearInterval(ban._t); ban.remove(); return;}
+    const m=String(Math.floor(rem/60000)).padStart(2,'0');
+    const s=String(Math.floor((rem%60000)/1000)).padStart(2,'0');
+    timer.textContent=`(${m}:${s})`;
   }
-  tick();
-  if(!ban._id) ban._id = setInterval(tick,1000);
+  tick(); if(!ban._t) ban._t=setInterval(tick,1000);
 }
 
-// ——— HISTORY RENDER ———
+/***** HISTORY UI *****/
 function renderHistory(){
-  const list = $('historyList'); list.innerHTML='';
-  rewardHistory.forEach((itm,i)=>{
+  const list=$('historyList'); list.innerHTML='';
+  rewardHistory.forEach((it,i)=>{
     const span=document.createElement('span'); span.className='history-item';
-    const label = itm.rank==='大当たり' ? '★大当たり! ' : itm.rank==='当たり' ? '当たり! ' : '';
-    span.innerHTML = `${label}${itm.name} <button class="history-remove" onclick="removeHistory(${i})">✕</button>`;
+    const label=it.rank==='大当たり'?'★大当たり! ':it.rank==='当たり'?'当たり! ':'';
+    span.innerHTML=`${label}${it.name} <button class="history-remove" onclick="removeHistory(${i})">✕</button>`;
     list.appendChild(span);
   });
 }
 function removeHistory(i){ rewardHistory.splice(i,1); renderHistory(); save.history(); }
 function clearHistory(){ rewardHistory=[]; renderHistory(); save.history(); }
+function addHistory(names,list){ names.forEach(n=>rewardHistory.push({name:n,rank:getRank(n,list)})); save.history(); renderHistory(); }
 
-function updateHistory(names,list){
-  names.forEach(n=> rewardHistory.push({name:n,rank:rank(n,list)}));
-  save.history(); renderHistory();
-}
-
-// ——— CORE HELPERS ———
+/***** CORE *****/
 function parseRewards(){
-  return $('rewardsInput').value.trim().split(/\n+/).map(l=>{
-    const [name,c] = l.split(',');
-    return {name:(name||'').trim(), chance:+(c||0)};
-  }).filter(r=>r.name && r.chance>0);
+  return $('rewardsInput').value.trim().split(/\n+/).map(l=>{const [n,c]=l.split(','); return{name:(n||'').trim(),chance:+(c||0)};}).filter(r=>r.name&&r.chance>0);
 }
-function pick(list){
-  let r=Math.random()*100, cum=0;
-  for(const o of list){ cum+=o.chance; if(r<=cum) return o.name; }
-  return 'ハズレ';
-}
-function rank(name,list){ const f=list.find(o=>o.name===name); return f? (f.chance<2?'大当たり':'当たり') : ''; }
+function pickReward(list){ let r=Math.random()*100,c=0; for(const o of list){ c+=o.chance; if(r<=c) return o.name;} return 'ハズレ'; }
+function getRank(name,list){ const f=list.find(o=>o.name===name); return f?(f.chance<2?'大当たり':'当たり'):''; }
 
-// ——— ANIMATION ———
+/***** ANIMATION *****/
 function spin(ms){
-  const r=$('roulette'); r.style.transition='none'; r.style.transform='rotate(0deg)'; void r.offsetWidth;
-  const deg = 3600 + Math.random()*360;
-  r.style.transition = `transform ${ms/1000}s cubic-bezier(.33,1,.68,1)`;
-  r.style.transform = `rotate(${deg}deg)`;
+  const r=$('roulette');
+  r.style.transition='none'; r.style.transform='rotate(0deg)'; void r.offsetWidth;
+  const deg=3600+Math.random()*360;
+  r.style.transition=`transform ${ms/1000}s cubic-bezier(.33,1,.68,1)`;
+  r.style.transform=`rotate(${deg}deg)`;
 }
 
-// ——— DRAW LOGIC ———
-function draw(count,ms){
+/***** RESULT UI *****/
+function showSingle(res,list){
+  const div=$('result');
+  if(res==='ハズレ'){ div.textContent='😢 ハズ레！😢'; return; }
+  const rk=getRank(res,list);
+  const label=rk==='大当たり'?'<span style="color:#ffd700;font-weight:bold;">★大当たり！</span><br>': rk==='当たり'?'<span style="color:#2196f3;font-weight:bold;">当たり！</span><br>':'';
+  div.className='hit'; div.innerHTML=`🎉 ${label}<span class="highlight">${res}</span>`;
+  setTimeout(()=>div.className='',600);
+}
+function showMulti(arr,list){
+  const div=$('result'); div.textContent='';
+  let i=0; (function reveal(){
+    const r=arr[i];
+    let line='';
+    if(r==='ハズレ') line='😢 ハズレ';
+    else{
+      const rk=getRank(r,list);
+      if(rk==='大当たり') line=`🎉 <span style="color:#ffd700;font-weight:bold;">★大当たり!</span> <span class="highlight">${r}</span>`;
+      else if(rk==='当たり') line=`🎉 <span style="color:#2196f3;font-weight:bold;">当たり!</span> <span class="highlight">${r}</span>`;
+      else line=`🎉 <span class="highlight">${r}</span>`;
+    }
+    div.innerHTML+=`${i+1}. ${line}
+`;
+    if(++i<arr.length) setTimeout(reveal,300);
+  })();
+}
+
+/***** DRAW LOGIC *****/
+function executeDraw(count,spinMs){
   $('result').textContent=''; save.input();
   let list=parseRewards();
   const sum=list.reduce((s,o)=>s+o.chance,0);
-  if(sum>100) return alert('確率合計が100%を超えています');
-  list.push({name:'ハズレ',chance:100-sum});
-  list=applyBoost(list);
-
-  spin(ms);
+  if(sum>100){alert('確率合計が100%を超えています'); return;}
+  list.push({name:'ハズレ',chance:100-sum}); list=applyBoost(list);
+  spin(spinMs);
   setTimeout(()=>{
-    const results=Array.from({length:count},()=>pick(list));
+    const results=Array.from({length:count},()=>pickReward(list));
     if(count===1) showSingle(results[0],list); else showMulti(results,list);
 
-    // 解析・ボーナス判定のみ即時実行
-    results.forEach(r=>{
-      if(r==='ハズレ') { consecutiveMisses++; if(consecutiveMisses>=MISS_THRESHOLD) maybeStartLucky(); }
-      else { consecutiveMisses=0; maybeStartLucky(); }
-    });
+    results.forEach(r=>{ if(r==='ハズレ'){consecutiveMisses++; if(consecutiveMisses>=MISS_THRESHOLD) maybeLucky();} else{consecutiveMisses=0; maybeLucky();} });
     save.misses(); showBanner();
 
-    // -------- 履歴追加を遅延実行 --------
-    const hits = results.filter(r=>r!=='ハズレ');
-    const delay = count===1 ? 0 : count*300 + 50;
-    setTimeout(()=>{ if(hits.length) updateHistory(hits,list); }, delay);
-  },ms);
+    const hits=results.filter(r=>r!=='ハズレ');
+    const delay=count===1?0:count*300+50;
+    setTimeout(()=>{ if(hits.length) addHistory(hits,list); },delay);
+  },spinMs);
 }
+
+/***** BUTTON BINDINGS *****/
+function drawSingle(){executeDraw(1,1000);}  
+function drawFive(){executeDraw(5,2000);}  
+function drawTen(){executeDraw(10,3000);}  
+
+/***** INIT *****/
+(function init(){
+  renderHistory();
+  const v=localStorage.getItem('rewardsInput'); if(v!==null) $('rewardsInput').value=v; else $('rewardsInput').value='ネットサーフィン10分,10';
+  showBanner();
+})();
+</script>
+</body>
+</html>
