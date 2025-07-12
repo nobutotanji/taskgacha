@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>カスタムリワードガチャ v1.021</title>
+  <title>カスタムリワードガチャ v1.022</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     /* ——— Global Layout ——— */
@@ -71,7 +71,7 @@
       <textarea id="rewardsInput" oninput="save.input()"></textarea>
     </section>
 
-    <footer style="text-align:center;margin-top:12px;color:#888;">v1.021</footer>
+    <footer style="text-align:center;margin-top:12px;color:#888;">v1.022</footer>
   </div>
 
 <script>
@@ -157,7 +157,7 @@ function spin(ms){
 /***** RESULT UI *****/
 function showSingle(res,list){
   const div=$('result');
-  if(res==='ハズレ'){ div.textContent='😢 ハズ레！😢'; return; }
+  if(res==='ハズレ'){ div.textContent='😢 ハズレ！😢'; return; }
   const rk=getRank(res,list);
   const label=rk==='大当たり'?'<span style="color:#ffd700;font-weight:bold;">★大当たり！</span><br>': rk==='当たり'?'<span style="color:#2196f3;font-weight:bold;">当たり！</span><br>':'';
   div.className='hit'; div.innerHTML=`🎉 ${label}<span class="highlight">${res}</span>`;
